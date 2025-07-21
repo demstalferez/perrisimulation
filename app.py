@@ -28,7 +28,6 @@ st.title("Simulador de Puntos para Tablas de Clasificación de Zoom Poker")
 st.sidebar.header("Configuración de la simulación")
 total_hands = st.sidebar.slider("Total de manos a jugar", 100, 1000, 500, step=100)
 attempts = total_hands // 100
-flop_seen_rate = st.sidebar.slider("% de manos que ven el flop", 10, 100, 40) / 100
 sim_runs = st.sidebar.number_input("Número de simulaciones a ejecutar", 1, 1000, 1)
 
 st.markdown("""
@@ -38,10 +37,10 @@ Simular cuántos puntos puedes hacer en un reto de 500 manos (5 intentos de 100)
 ### 📊 Reglas oficiales (según la promoción)
 - Solo cuentan las **primeras 100 manos** jugadas tras la inscripción cada día.
 - Se permiten hasta **5 intentos diarios por stake**, cuenta solo el mejor.
-- La mano debe **ver el flop** para puntuar (ya no es necesario que sea multiway).
-- Los puntos se asignan sumando el valor de las cartas: A=14, K=13, Q=12, J=11...
+- **No es necesario ver el flop**: basta con recibir las cartas en una mano válida.
+- La mano debe haberse jugado en una mesa con al menos **3 jugadores sentados**.
 
-### 🔢 Multiplicadores y puntos fijos
+### 🔢 Sistema de puntuación
 | Tipo de mano              | Puntuación          |
 |---------------------------|---------------------|
 | Ases de mano (AA)         | 125 puntos fijos    |
@@ -52,58 +51,74 @@ Simular cuántos puntos puedes hacer en un reto de 500 manos (5 intentos de 100)
 | Conectores suited         | (val1 + val2) × 2   |
 | Cualquier otra mano       | val1 + val2         |
 
-En caso de empate, el primero en jugar la última mano válida ese día queda mejor clasificado.
-
 ---
 """)
 
-probabilities = {
-    "Pocket Aces": 0.0045,
-    "Pocket Kings": 0.0045,
-    "Pocket Queens": 0.0045,
-    "Pocket Jacks": 0.0045,
-    "Pocket Pairs (2-10)": 0.055,
-    "Suited Connectors": 0.03,
-}
+# Simulación real de manos
 
-# Simulación
+def generar_mano():
+    valores = list(range(2, 15))  # 2 a As (14)
+    palos = ["♠", "♥", "♦", "♣"]
+    carta1 = (np.random.choice(valores), np.random.choice(palos))
+    carta2 = (np.random.choice(valores), np.random.choice(palos))
+    return carta1, carta2
+
+def calcular_puntos(c1, c2):
+    v1, p1 = c1
+    v2, p2 = c2
+    if v1 == v2:
+        if v1 == 14:
+            return 125
+        elif v1 == 13:
+            return 104
+        elif v1 == 12:
+            return 96
+        elif v1 == 11:
+            return 88
+        elif 2 <= v1 <= 10:
+            return (v1 + v2) * 4
+    elif abs(v1 - v2) == 1 and p1 == p2:
+        return (v1 + v2) * 2
+    else:
+        return v1 + v2
+
+# Simulación por intento
 
 def run_simulation():
     sim_data = []
-    for i in range(attempts):
-        hand_count = 100
-        hand_results = {}
-        total_points = 0
+    for intento in range(1, attempts + 1):
+        puntos = 0
+        tipo_manos = {
+            "AA": 0, "KK": 0, "QQ": 0, "JJ": 0,
+            "Parejas (2–10)": 0,
+            "Conectores suited": 0,
+            "Otras manos": 0
+        }
+        for _ in range(100):
+            c1, c2 = generar_mano()
+            score = calcular_puntos(c1, c2)
+            puntos += score
 
-        for hand_type, prob in probabilities.items():
-            estimated_hands = np.random.binomial(hand_count, prob)
-            flop_seen_hands = int(estimated_hands * flop_seen_rate)
-            
-            hand_points = 0
-            if hand_type == "Pocket Aces":
-                hand_points = flop_seen_hands * 125
-            elif hand_type == "Pocket Kings":
-                hand_points = flop_seen_hands * 104
-            elif hand_type == "Pocket Queens":
-                hand_points = flop_seen_hands * 96
-            elif hand_type == "Pocket Jacks":
-                hand_points = flop_seen_hands * 88
-            elif hand_type == "Pocket Pairs (2-10)":
-                # Random valor entre 2 y 10
-                values = np.random.randint(2, 11, size=flop_seen_hands)
-                hand_points = np.sum((values + values) * 4)
-            elif hand_type == "Suited Connectors":
-                # Random conectores entre 3 y 11 (J)
-                values = np.random.randint(3, 12, size=flop_seen_hands)
-                hand_points = np.sum((values + (values + 1)) * 2)
-
-            hand_results[hand_type] = flop_seen_hands
-            total_points += hand_points
+            if c1[0] == c2[0]:
+                if c1[0] == 14:
+                    tipo_manos["AA"] += 1
+                elif c1[0] == 13:
+                    tipo_manos["KK"] += 1
+                elif c1[0] == 12:
+                    tipo_manos["QQ"] += 1
+                elif c1[0] == 11:
+                    tipo_manos["JJ"] += 1
+                elif 2 <= c1[0] <= 10:
+                    tipo_manos["Parejas (2–10)"] += 1
+            elif abs(c1[0] - c2[0]) == 1 and c1[1] == c2[1]:
+                tipo_manos["Conectores suited"] += 1
+            else:
+                tipo_manos["Otras manos"] += 1
 
         sim_data.append({
-            "Intento": i + 1,
-            **hand_results,
-            "Puntos Totales": total_points
+            "Intento": intento,
+            **tipo_manos,
+            "Puntos Totales": puntos
         })
     return pd.DataFrame(sim_data)
 
@@ -117,10 +132,9 @@ for i in range(sim_runs):
 st.markdown("""
 ---
 ### 💡 Recomendaciones Estratégicas
-- Juega manos que maximizan el multiplicador (suited connectors, pares bajos).
-- No hagas foldear a los villanos preflop: juega slow para ver el flop.
-- Aumenta volumen jugando muchas manos, no solo premiums.
-- Puedes hacer hasta **5 intentos diarios**. Solo el mejor puntúa.
+- Todas las manos jugadas cuentan, no hace falta llegar al flop.
+- La clave es volumen + buscar manos que tengan multiplicador.
+- Juega con constancia hasta lograr el intento con más puntos.
 
 ### 💸 Premios diarios (stake 0,25€/0,50€)
 | Puesto | Premio   |
