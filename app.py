@@ -19,7 +19,7 @@ def check_password():
         st.error("Contraseña incorrecta.")
         st.stop()
 
-check_password()  # Llama a la función antes de mostrar nada más
+check_password()
 
 st.set_page_config(page_title="Simulador de Puntos - Zoom Poker", layout="wide")
 
@@ -35,18 +35,26 @@ st.markdown("""
 ### 🎯 Objetivo
 Simular cuántos puntos puedes hacer en un reto de 500 manos (5 intentos de 100), donde solo cuenta el mejor intento para la clasificación.
 
-### 📊 Reglas:
-- Solo cuentan manos jugadas en Zoom con dinero real.
-- Las manos deben ver el **flop con al menos 3 jugadores**.
-- Solo puntúan combinaciones específicas de manos iniciales.
+### 📊 Reglas oficiales (según la promoción)
+- Solo cuentan las **primeras 100 manos** jugadas tras la inscripción cada día.
+- Se permiten hasta **5 intentos diarios por stake**, cuenta solo el mejor.
+- La mano debe ver el **flop con al menos 3 jugadores** para puntuar.
+- Los puntos se asignan sumando el valor de las cartas: A=14, K=13, Q=12, J=11...
 
-### 🔢 Sistema de puntuación
-- **Pocket Aces**: 125 puntos
-- **Pocket Kings**: 104 puntos
-- **Pocket Queens**: 96 puntos
-- **Pocket Jacks**: 88 puntos
-- **Pocket Pairs (2-10)**: (7+7)x4 = 56 puntos
-- **Suited Connectors**: (6+7)x2 = 26 puntos
+### 🔢 Multiplicadores y puntos fijos
+| Tipo de mano              | Puntuación          |
+|---------------------------|---------------------|
+| Ases de mano (AA)         | 125 puntos fijos    |
+| Reyes de mano (KK)        | 104 puntos fijos    |
+| Damas de mano (QQ)        | 96 puntos fijos     |
+| Jotas de mano (JJ)        | 88 puntos fijos     |
+| Parejas (2–10)            | (val1 + val2) × 4   |
+| Conectores suited         | (val1 + val2) × 2   |
+| Cualquier otra mano       | val1 + val2         |
+
+En caso de empate, el primero en jugar la última mano válida ese día queda mejor clasificado.
+
+---
 """)
 
 probabilities = {
@@ -96,12 +104,21 @@ for i in range(sim_runs):
 
 st.markdown("""
 ---
-### 📚 Recomendaciones Estratégicas
-- Limpear más manos específicas para inducir MW flop.
-- Evitar asustar a los rivales con 3-bets grandes.
-- No aislarse preflop con premiums si eso reduce los puntos.
-- Jugar muchas manos suited y pares bajos buscando volumen.
+### 💡 Recomendaciones Estratégicas
+- Juega manos que maximizan el multiplicador (suited connectors, pares bajos).
+- No hagas foldear a los villanos preflop: juega slow para ver el flop MW.
+- Aumenta volumen jugando muchas manos, no solo premiums.
+- Puedes hacer hasta **5 intentos diarios**. Solo el mejor puntúa.
 
-### 💸 Objetivo
-Se puede llegar a **125 dólares diarios** si logras un intento que se acerque al top de la tabla de puntos. Con esta app puedes explorar tus chances y definir tu estrategia.
+### 💸 Premios diarios (stake 0,25€/0,50€)
+| Puesto | Premio   |
+|--------|----------|
+| 1º     | 125 €    |
+| 2º     | 100 €    |
+| 3º     | 85 €     |
+| 4º     | 65 €     |
+| 5º     | 50 €     |
+| 6º-10º | 30 €     |
+| 11º-15º| 20 €     |
+
 """)
